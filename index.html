@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Connect 4</title>
+  <style>
+    /* ===================== CSS CUSTOM PROPERTIES ===================== */
+    :root {
+      --board-blue:    #1a3e8c;
+      --board-shadow:  #0d2057;
+      --bg:            #0f172a;
+      --bg2:           #1e293b;
+      --text:          #e2e8f0;
+      --text-muted:    #94a3b8;
+      --red:           #e53e3e;
+      --red-dark:      #9b2c2c;
+      --yellow:        #ecc94b;
+      --yellow-dark:   #b7791f;
+      --empty:         #0f172a;
+      --empty-inner:   #0b1120;
+      --ghost-red:     rgba(229, 62, 62, 0.35);
+      --ghost-yellow:  rgba(236, 201, 75, 0.35);
+      --win-glow-red:    #fc8181;
+      --win-glow-yellow: #f6e05e;
+      --cell-size: 80px;
+      --cell-gap:   8px;
+      --border-radius: 50%;
+    }
+
+    /* ===================== RESET & BASE ===================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 40px;
+      user-select: none;
+    }
+
+    /* ===================== HEADER ===================== */
+    h1 {
+      font-size: 2.4rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, var(--red) 0%, var(--yellow) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 20px;
+    }
+
+    /* ===================== MODE TOGGLE ===================== */
+    .mode-toggle {
+      display: flex;
+      background: var(--bg2);
+      border-radius: 10px;
+      padding: 4px;
+      gap: 4px;
+      margin-bottom: 20px;
+    }
+    .mode-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px 18px;
+      border-radius: 7px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .mode-btn.active {
+      background: var(--board-blue);
+      color: #fff;
+    }
+    .mode-btn:hover:not(.active) {
+      background: rgba(255,255,255,0.07);
+      color: var(--text);
+    }
+
+    /* ===================== SCOREBOARD ===================== */
+    .scoreboard {
+      display: flex;
+      gap: 32px;
+      margin-bottom: 18px;
+      align-items: center;
+    }
+    .score-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      min-width: 80px;
+    }
+    .score-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+    }
+    .score-value {
+      font-size: 2rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .score-value.red    { color: var(--red); }
+    .score-value.yellow { color: var(--yellow); }
+    .score-divider {
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      font-weight: 300;
+    }
+
+    /* ===================== STATUS BAR ===================== */
+    .status-bar {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .status-indicator {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .status-indicator.red    { background: var(--red); }
+    .status-indicator.yellow { background: var(--yellow); }
+    .status-text { color: var(--text); }
+
+    /* ===================== COLUMN HEADERS (hover preview) ===================== */
+    .col-headers {
+      display: grid;
+      grid-template-columns: repeat(7, var(--cell-size));
+      gap: var(--cell-gap);
+      margin-bottom: 4px;
+      padding: 0 var(--cell-gap);
+    }
+    .col-header {
+      width: var(--cell-size);
+      height: calc(var(--cell-size) * 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .ghost-piece {
+      width: calc(var(--cell-size) - 10px);
+      height: calc(var(--cell-size) - 10px);
+      border-radius: 50%;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .ghost-piece.show { opacity: 1; }
+    .ghost-piece.red    { background: var(--ghost-red);    border: 2px solid var(--red); }
+    .ghost-piece.yellow { background: var(--ghost-yellow); border: 2px solid var(--yellow); }
+
+    /* ===================== BOARD ===================== */
+    .board-wrap {
+      background: var(--board-blue);
+      border-radius: 16px;
+      padding: var(--cell-gap);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 2px 0 var(--board-shadow) inset;
+      position: relative;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(7, var(--cell-size));
+      grid-template-rows:    repeat(6, var(--cell-size));
+      gap: var(--cell-gap);
+    }
+    .cell {
+      width:  var(--cell-size);
+      height: var(--cell-size);
+      border-radius: var(--border-radius);
+      background: var(--empty-inner);
+      position: relative;
+      overflow: hidden;
+      transition: background 0.1s;
+    }
+
+    /* ===================== PIECES ===================== */
+    .piece {
+      position: absolute;
+      inset: 4px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .piece.red {
+      background: radial-gradient(circle at 35% 30%, #fc8181, var(--red) 60%, var(--red-dark));
+      box-shadow: inset 0 -3px 6px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.4);
+    }
+    .piece.yellow {
+      background: radial-gradient(circle at 35% 30%, #fef08a, var(--yellow) 60%, var(--yellow-dark));
+      box-shadow: inset 0 -3px 6px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.4);
+    }
+
+    /* ===================== DROP ANIMATION ===================== */
+    @keyframes dropIn {
+      0%   { transform: translateY(var(--drop-start)); opacity: 0.7; }
+      70%  { transform: translateY(6px); }
+      85%  { transform: translateY(-3px); }
+      100% { transform: translateY(0);   opacity: 1; }
+    }
+    .piece.dropping {
+      animation: dropIn 0.38s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    /* ===================== WIN HIGHLIGHT ===================== */
+    @keyframes winPulse {
+      0%,100% { box-shadow: inset 0 -3px 6px rgba(0,0,0,0.35), 0 0 0 0 transparent; transform: scale(1); }
+      50%      { transform: scale(1.08); }
+    }
+    .piece.winner {
+      animation: winPulse 0.65s ease-in-out infinite;
+      z-index: 2;
+    }
+    .piece.winner.red {
+      box-shadow: 0 0 18px 6px var(--win-glow-red);
+    }
+    .piece.winner.yellow {
+      box-shadow: 0 0 18px 6px var(--win-glow-yellow);
+    }
+
+    /* ===================== FACE SVG ===================== */
+    .face { width: 70%; height: 70%; pointer-events: none; }
+
+    /* ===================== GAME OVER OVERLAY ===================== */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.82);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s;
+      backdrop-filter: blur(3px);
+    }
+    .overlay.show { opacity: 1; pointer-events: auto; }
+    .overlay-title {
+      font-size: 2rem;
+      font-weight: 800;
+      text-align: center;
+    }
+    .overlay-title.red    { color: var(--red); }
+    .overlay-title.yellow { color: var(--yellow); }
+    .overlay-title.draw   { color: var(--text-muted); }
+    .play-again-btn {
+      background: var(--board-blue);
+      color: #fff;
+      border: none;
+      padding: 12px 32px;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .play-again-btn:hover  { background: #2351b8; transform: scale(1.04); }
+    .play-again-btn:active { transform: scale(0.97); }
+
+    /* ===================== RESPONSIVE ===================== */
+    @media (max-width: 640px) {
+      :root {
+        --cell-size: 44px;
+        --cell-gap:  5px;
+      }
+      h1 { font-size: 1.6rem; }
+      .face { width: 65%; height: 65%; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Connect 4</h1>
+  <p class="subtitle">Drop your piece — connect four to win!</p>
+
+  <!-- Mode toggle -->
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="btn-ai"  onclick="setMode('ai')">vs AI</button>
+    <button class="mode-btn"        id="btn-2p"  onclick="setMode('2p')">2 Players</button>
+  </div>
+
+  <!-- Scoreboard -->
+  <div class="scoreboard">
+    <div class="score-card">
+      <span class="score-label" id="label-p1">Player 1</span>
+      <span class="score-value red" id="score-p1">0</span>
+    </div>
+    <span class="score-divider">–</span>
+    <div class="score-card">
+      <span class="score-label" id="label-p2">AI</span>
+      <span class="score-value yellow" id="score-p2">0</span>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-bar">
+    <div class="status-indicator red" id="status-dot"></div>
+    <span class="status-text" id="status-text">Player 1's turn</span>
+  </div>
+
+  <!-- Ghost piece headers -->
+  <div class="col-headers" id="col-headers">
+    <!-- filled by JS -->
+  </div>
+
+  <!-- Board -->
+  <div class="board-wrap">
+    <div class="board" id="board"><!-- filled by JS --></div>
+    <div class="overlay" id="overlay">
+      <div class="overlay-title" id="overlay-title"></div>
+      <button class="play-again-btn" onclick="restartGame()">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    // ================================================================
+    // 1. CONSTANTS
+    // ================================================================
+    const ROWS     = 6;
+    const COLS     = 7;
+    const EMPTY    = 0;
+    const PLAYER   = 1;   // Red / angry
+    const AI_P     = 2;   // Yellow / smiley
+    const AI_DEPTH = 6;
+    const AI_DELAY_MS = 420;
+
+    // ================================================================
+    // 2. STATE
+    // ================================================================
+    const state = {
+      board:         [],
+      currentPlayer: PLAYER,
+      gameOver:      false,
+      mode:          'ai',   // 'ai' | '2p'
+      scores:        { [PLAYER]: 0, [AI_P]: 0 },
+      animating:     false,
+    };
+
+    // ================================================================
+    // 3. BOARD LOGIC  (pure functions — never mutate global state directly)
+    // ================================================================
+
+    /** Returns a fresh empty 6×7 board */
+    function emptyBoard() {
+      return Array.from({ length: ROWS }, () => new Array(COLS).fill(EMPTY));
+    }
+
+    /** Returns the lowest empty row index in the given column, or -1 if full */
+    function getAvailableRow(board, col) {
+      for (let r = ROWS - 1; r >= 0; r--) {
+        if (board[r][col] === EMPTY) return r;
+      }
+      return -1;
+    }
+
+    /** Returns true if the column can accept another piece */
+    function isValidColumn(board, col) {
+      return board[0][col] === EMPTY;
+    }
+
+    /**
+     * Returns an array of 4-cell coords [row, col] that form a winning line
+     * for `player`, or null if no win.
+     */
+    function checkWin(board, player) {
+      // Horizontal
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c <= COLS - 4; c++) {
+          if ([0,1,2,3].every(i => board[r][c+i] === player))
+            return [[r,c],[r,c+1],[r,c+2],[r,c+3]];
+        }
+      }
+      // Vertical
+      for (let r = 0; r <= ROWS - 4; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if ([0,1,2,3].every(i => board[r+i][c] === player))
+            return [[r,c],[r+1,c],[r+2,c],[r+3,c]];
+        }
+      }
+      // Diagonal ↘
+      for (let r = 0; r <= ROWS - 4; r++) {
+        for (let c = 0; c <= COLS - 4; c++) {
+          if ([0,1,2,3].every(i => board[r+i][c+i] === player))
+            return [[r,c],[r+1,c+1],[r+2,c+2],[r+3,c+3]];
+        }
+      }
+      // Diagonal ↗
+      for (let r = 3; r < ROWS; r++) {
+        for (let c = 0; c <= COLS - 4; c++) {
+          if ([0,1,2,3].every(i => board[r-i][c+i] === player))
+            return [[r,c],[r-1,c+1],[r-2,c+2],[r-3,c+3]];
+        }
+      }
+      return null;
+    }
+
+    /** Returns true if the board is completely full */
+    function isDraw(board) {
+      return board[0].every(cell => cell !== EMPTY);
+    }
+
+    // ================================================================
+    // 4. AI — minimax with alpha-beta pruning
+    // ================================================================
+
+    /** Score a window of 4 cells for `player` */
+    function scoreWindow(window, player) {
+      const opp = player === PLAYER ? AI_P : PLAYER;
+      const mine  = window.filter(c => c === player).length;
+      const empty = window.filter(c => c === EMPTY).length;
+      const theirs = window.filter(c => c === opp).length;
+      if (mine === 4)              return 100;
+      if (mine === 3 && empty === 1) return 5;
+      if (mine === 2 && empty === 2) return 2;
+      if (theirs === 3 && empty === 1) return -4;
+      return 0;
+    }
+
+    /** Heuristic board evaluation for `player` */
+    function scoreBoard(board, player) {
+      let score = 0;
+      // Center column preference
+      const centerCol = board.map(r => r[Math.floor(COLS/2)]);
+      score += centerCol.filter(c => c === player).length * 3;
+
+      // Horizontal windows
+      for (let r = 0; r < ROWS; r++)
+        for (let c = 0; c <= COLS-4; c++)
+          score += scoreWindow([board[r][c], board[r][c+1], board[r][c+2], board[r][c+3]], player);
+
+      // Vertical windows
+      for (let r = 0; r <= ROWS-4; r++)
+        for (let c = 0; c < COLS; c++)
+          score += scoreWindow([board[r][c], board[r+1][c], board[r+2][c], board[r+3][c]], player);
+
+      // Diagonal ↘
+      for (let r = 0; r <= ROWS-4; r++)
+        for (let c = 0; c <= COLS-4; c++)
+          score += scoreWindow([board[r][c], board[r+1][c+1], board[r+2][c+2], board[r+3][c+3]], player);
+
+      // Diagonal ↗
+      for (let r = 3; r < ROWS; r++)
+        for (let c = 0; c <= COLS-4; c++)
+          score += scoreWindow([board[r][c], board[r-1][c+1], board[r-2][c+2], board[r-3][c+3]], player);
+
+      return score;
+    }
+
+    /**
+     * Minimax with alpha-beta pruning.
+     * Returns { col, score }
+     */
+    function minimax(board, depth, alpha, beta, maximizing) {
+      const winAI     = checkWin(board, AI_P);
+      const winPlayer = checkWin(board, PLAYER);
+
+      if (winAI)     return { col: -1, score:  10000 + depth };
+      if (winPlayer) return { col: -1, score: -10000 - depth };
+      if (isDraw(board) || depth === 0)
+        return { col: -1, score: scoreBoard(board, AI_P) };
+
+      // Try center columns first (better pruning)
+      const colOrder = [3,2,4,1,5,0,6].filter(c => isValidColumn(board, c));
+
+      if (maximizing) {
+        let best = { col: colOrder[0], score: -Infinity };
+        for (const col of colOrder) {
+          const row = getAvailableRow(board, col);
+          const next = board.map(r => [...r]);
+          next[row][col] = AI_P;
+          const result = minimax(next, depth - 1, alpha, beta, false);
+          if (result.score > best.score) best = { col, score: result.score };
+          alpha = Math.max(alpha, best.score);
+          if (alpha >= beta) break;
+        }
+        return best;
+      } else {
+        let best = { col: colOrder[0], score: Infinity };
+        for (const col of colOrder) {
+          const row = getAvailableRow(board, col);
+          const next = board.map(r => [...r]);
+          next[row][col] = PLAYER;
+          const result = minimax(next, depth - 1, alpha, beta, true);
+          if (result.score < best.score) best = { col, score: result.score };
+          beta = Math.min(beta, best.score);
+          if (alpha >= beta) break;
+        }
+        return best;
+      }
+    }
+
+    /** Returns the best column for the AI to play */
+    function getBestMove(board) {
+      const { col } = minimax(board, AI_DEPTH, -Infinity, Infinity, true);
+      return col;
+    }
+
+    // ================================================================
+    // 5. SVG FACES
+    // ================================================================
+
+    /** Angry face SVG (red piece) */
+    function angryFaceSVG() {
+      return `<svg class="face" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <!-- Eyes -->
+        <ellipse cx="36" cy="42" rx="9" ry="10" fill="#1a0000"/>
+        <ellipse cx="64" cy="42" rx="9" ry="10" fill="#1a0000"/>
+        <!-- Pupils -->
+        <ellipse cx="38" cy="44" rx="4" ry="5" fill="#fff"/>
+        <ellipse cx="66" cy="44" rx="4" ry="5" fill="#fff"/>
+        <!-- Angry brows -->
+        <line x1="25" y1="28" x2="48" y2="36" stroke="#1a0000" stroke-width="5" stroke-linecap="round"/>
+        <line x1="75" y1="28" x2="52" y2="36" stroke="#1a0000" stroke-width="5" stroke-linecap="round"/>
+        <!-- Frown -->
+        <path d="M32 72 Q50 58 68 72" stroke="#1a0000" stroke-width="5" fill="none" stroke-linecap="round"/>
+        <!-- Gritted teeth hint -->
+        <rect x="38" y="68" width="24" height="5" rx="2" fill="#1a0000" opacity="0.3"/>
+      </svg>`;
+    }
+
+    /** Smiley face SVG (yellow piece) */
+    function smileyFaceSVG() {
+      return `<svg class="face" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <!-- Eyes -->
+        <ellipse cx="36" cy="40" rx="8" ry="9" fill="#5c3d00"/>
+        <ellipse cx="64" cy="40" rx="8" ry="9" fill="#5c3d00"/>
+        <!-- Pupils / shine -->
+        <ellipse cx="38" cy="38" rx="3" ry="4" fill="#fff"/>
+        <ellipse cx="66" cy="38" rx="3" ry="4" fill="#fff"/>
+        <!-- Happy brows -->
+        <path d="M27 30 Q36 24 45 30" stroke="#5c3d00" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <path d="M55 30 Q64 24 73 30" stroke="#5c3d00" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <!-- Big smile -->
+        <path d="M28 60 Q50 82 72 60" stroke="#5c3d00" stroke-width="5" fill="none" stroke-linecap="round"/>
+        <!-- Rosy cheeks -->
+        <ellipse cx="22" cy="60" rx="9" ry="6" fill="#f97316" opacity="0.3"/>
+        <ellipse cx="78" cy="60" rx="9" ry="6" fill="#f97316" opacity="0.3"/>
+      </svg>`;
+    }
+
+    // ================================================================
+    // 6. RENDERING
+    // ================================================================
+
+    /** Build the ghost-piece header row */
+    function buildColHeaders() {
+      const headers = document.getElementById('col-headers');
+      headers.innerHTML = '';
+      for (let c = 0; c < COLS; c++) {
+        const div = document.createElement('div');
+        div.className = 'col-header';
+        div.dataset.col = c;
+        const ghost = document.createElement('div');
+        ghost.className = 'ghost-piece';
+        ghost.id = `ghost-${c}`;
+        div.appendChild(ghost);
+        div.addEventListener('mouseenter', () => onColHover(c));
+        div.addEventListener('mouseleave', () => onColLeave(c));
+        div.addEventListener('click', () => onColClick(c));
+        headers.appendChild(div);
+      }
+    }
+
+    /** Build the 6×7 cell grid */
+    function buildBoard() {
+      const board = document.getElementById('board');
+      board.innerHTML = '';
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.id = `cell-${r}-${c}`;
+          cell.dataset.row = r;
+          cell.dataset.col = c;
+          board.appendChild(cell);
+        }
+      }
+    }
+
+    /** Render a single cell from state.board */
+    function renderCell(row, col, animate = false, dropStartPx = 0) {
+      const cell  = document.getElementById(`cell-${row}-${col}`);
+      const value = state.board[row][col];
+      cell.innerHTML = '';
+      if (value === EMPTY) return;
+
+      const piece = document.createElement('div');
+      const cls   = value === PLAYER ? 'red' : 'yellow';
+      piece.className = `piece ${cls}`;
+      piece.innerHTML = value === PLAYER ? angryFaceSVG() : smileyFaceSVG();
+
+      if (animate) {
+        piece.style.setProperty('--drop-start', `-${dropStartPx}px`);
+        piece.classList.add('dropping');
+      }
+      cell.appendChild(piece);
+    }
+
+    /** Full board re-render (no animations) */
+    function renderBoard() {
+      for (let r = 0; r < ROWS; r++)
+        for (let c = 0; c < COLS; c++)
+          renderCell(r, c, false);
+    }
+
+    /** Highlight the four winning cells */
+    function highlightWin(coords) {
+      coords.forEach(([r, c]) => {
+        const piece = document.querySelector(`#cell-${r}-${c} .piece`);
+        if (piece) piece.classList.add('winner');
+      });
+    }
+
+    /** Update status bar */
+    function updateStatus(text, playerNum) {
+      document.getElementById('status-text').textContent = text;
+      const dot = document.getElementById('status-dot');
+      dot.className = 'status-indicator ' + (playerNum === PLAYER ? 'red' : 'yellow');
+    }
+
+    /** Update score display */
+    function updateScoreDisplay() {
+      document.getElementById('score-p1').textContent = state.scores[PLAYER];
+      document.getElementById('score-p2').textContent = state.scores[AI_P];
+    }
+
+    /** Show or hide the game-over overlay */
+    function showOverlay(text, colorClass) {
+      const overlay = document.getElementById('overlay');
+      const title   = document.getElementById('overlay-title');
+      title.textContent = text;
+      title.className = `overlay-title ${colorClass}`;
+      overlay.classList.add('show');
+    }
+    function hideOverlay() {
+      document.getElementById('overlay').classList.remove('show');
+    }
+
+    // ================================================================
+    // 7. GAME FLOW
+    // ================================================================
+
+    /**
+     * Drop a piece in the given column.
+     * Returns a Promise that resolves after the animation completes.
+     */
+    function dropPiece(col, player) {
+      return new Promise((resolve) => {
+        const row = getAvailableRow(state.board, col);
+        if (row === -1) { resolve(false); return; }
+
+        state.board[row][col] = player;
+
+        // Calculate drop distance for animation
+        const cell  = document.getElementById(`cell-${row}-${col}`);
+        const board = document.getElementById('board');
+        const boardRect = board.getBoundingClientRect();
+        const cellRect  = cell.getBoundingClientRect();
+        const dropPx = cellRect.top - boardRect.top + 60; // 60 = header area offset approx
+
+        renderCell(row, col, true, dropPx);
+
+        // Wait for animation before continuing
+        setTimeout(() => resolve(true), 400);
+      });
+    }
+
+    /** Handle a column selection by whoever's turn it is */
+    async function handleColumnPick(col) {
+      if (state.gameOver || state.animating) return;
+      if (!isValidColumn(state.board, col)) return;
+
+      state.animating = true;
+      clearGhosts();
+
+      const player = state.currentPlayer;
+      await dropPiece(col, player);
+
+      // Check win
+      const winCoords = checkWin(state.board, player);
+      if (winCoords) {
+        highlightWin(winCoords);
+        state.scores[player]++;
+        updateScoreDisplay();
+        state.gameOver = true;
+        state.animating = false;
+
+        const name  = playerName(player);
+        const color = player === PLAYER ? 'red' : 'yellow';
+        updateStatus(`${name} wins! 🎉`, player);
+        setTimeout(() => showOverlay(`${name} Wins! 🎉`, color), 300);
+        return;
+      }
+
+      // Check draw
+      if (isDraw(state.board)) {
+        state.gameOver = true;
+        state.animating = false;
+        updateStatus("It's a draw!", PLAYER);
+        setTimeout(() => showOverlay("It's a Draw!", 'draw'), 300);
+        return;
+      }
+
+      // Switch player
+      state.currentPlayer = state.currentPlayer === PLAYER ? AI_P : PLAYER;
+      state.animating = false;
+
+      if (state.mode === 'ai' && state.currentPlayer === AI_P) {
+        updateStatus('AI is thinking…', AI_P);
+        setTimeout(triggerAI, AI_DELAY_MS);
+      } else {
+        updateStatus(`${playerName(state.currentPlayer)}'s turn`, state.currentPlayer);
+      }
+    }
+
+    /** Trigger the AI to make its move */
+    async function triggerAI() {
+      if (state.gameOver) return;
+      const col = getBestMove(state.board);
+      await handleColumnPick(col);
+    }
+
+    // ================================================================
+    // 8. UI / EVENT HANDLERS
+    // ================================================================
+
+    function onColClick(col) {
+      if (state.gameOver || state.animating) return;
+      if (state.mode === 'ai' && state.currentPlayer === AI_P) return; // not human's turn
+      handleColumnPick(col);
+    }
+
+    function onColHover(col) {
+      if (state.gameOver || state.animating) return;
+      if (state.mode === 'ai' && state.currentPlayer === AI_P) return;
+      if (!isValidColumn(state.board, col)) return;
+      const ghost = document.getElementById(`ghost-${col}`);
+      const cls   = state.currentPlayer === PLAYER ? 'red' : 'yellow';
+      ghost.className = `ghost-piece ${cls} show`;
+    }
+
+    function onColLeave(col) {
+      const ghost = document.getElementById(`ghost-${col}`);
+      ghost.className = 'ghost-piece';
+    }
+
+    function clearGhosts() {
+      for (let c = 0; c < COLS; c++) onColLeave(c);
+    }
+
+    function playerName(player) {
+      if (state.mode === 'ai') return player === PLAYER ? 'Player 1' : 'AI';
+      return player === PLAYER ? 'Player 1' : 'Player 2';
+    }
+
+    function setMode(mode) {
+      if (state.mode === mode) return;
+      state.mode = mode;
+      document.getElementById('btn-ai').classList.toggle('active', mode === 'ai');
+      document.getElementById('btn-2p').classList.toggle('active', mode === '2p');
+      document.getElementById('label-p2').textContent = mode === 'ai' ? 'AI' : 'Player 2';
+      state.scores[PLAYER] = 0;
+      state.scores[AI_P]   = 0;
+      updateScoreDisplay();
+      initGame();
+    }
+
+    function restartGame() {
+      hideOverlay();
+      initGame();
+    }
+
+    // ================================================================
+    // 9. INIT
+    // ================================================================
+    function initGame() {
+      state.board         = emptyBoard();
+      state.currentPlayer = PLAYER;
+      state.gameOver      = false;
+      state.animating     = false;
+
+      buildColHeaders();
+      buildBoard();
+      renderBoard();
+      hideOverlay();
+      updateStatus(`${playerName(PLAYER)}'s turn`, PLAYER);
+    }
+
+    initGame();
+  </script>
+</body>
+</html>
