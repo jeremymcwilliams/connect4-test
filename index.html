@@ -244,6 +244,46 @@
     /* ===================== FACE SVG ===================== */
     .face { width: 70%; height: 70%; pointer-events: none; }
 
+    /* ===================== FACE ANIMATIONS ===================== */
+    .angry-brow {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: angryBrowFurrow 3s ease-in-out infinite;
+    }
+    .angry-pupil {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: angryPupilDart 4s ease-in-out infinite;
+    }
+    .smiley-eye {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: smileyBlink 3.5s ease-in-out infinite;
+    }
+    .smiley-cheek {
+      animation: cheekGlow 2s ease-in-out infinite;
+    }
+
+    @keyframes angryBrowFurrow {
+      0%, 80%, 100% { transform: translateY(0)   rotate(0deg);  }
+      85%            { transform: translateY(-3px) rotate(-5deg); }
+      92%            { transform: translateY(1px)  rotate(2deg);  }
+    }
+    @keyframes angryPupilDart {
+      0%, 75%, 100% { transform: translateX(0px);  }
+      80%            { transform: translateX(-3px); }
+      88%            { transform: translateX(3px);  }
+      94%            { transform: translateX(-1px); }
+    }
+    @keyframes smileyBlink {
+      0%, 88%, 98%, 100% { transform: scaleY(1);    }
+      92%                 { transform: scaleY(0.08); }
+    }
+    @keyframes cheekGlow {
+      0%, 100% { opacity: 0.3; }
+      50%      { opacity: 0.65; }
+    }
+
     /* ===================== GAME OVER OVERLAY ===================== */
     .overlay {
       position: absolute;
@@ -531,12 +571,12 @@
         <!-- Eyes -->
         <ellipse cx="36" cy="42" rx="9" ry="10" fill="#1a0000"/>
         <ellipse cx="64" cy="42" rx="9" ry="10" fill="#1a0000"/>
-        <!-- Pupils -->
-        <ellipse cx="38" cy="44" rx="4" ry="5" fill="#fff"/>
-        <ellipse cx="66" cy="44" rx="4" ry="5" fill="#fff"/>
-        <!-- Angry brows -->
-        <line x1="25" y1="28" x2="48" y2="36" stroke="#1a0000" stroke-width="5" stroke-linecap="round"/>
-        <line x1="75" y1="28" x2="52" y2="36" stroke="#1a0000" stroke-width="5" stroke-linecap="round"/>
+        <!-- Pupils (dart left/right) -->
+        <ellipse cx="38" cy="44" rx="4" ry="5" fill="#fff" class="angry-pupil"/>
+        <ellipse cx="66" cy="44" rx="4" ry="5" fill="#fff" class="angry-pupil"/>
+        <!-- Angry brows (twitch/furrow) -->
+        <line x1="25" y1="28" x2="48" y2="36" stroke="#1a0000" stroke-width="5" stroke-linecap="round" class="angry-brow"/>
+        <line x1="75" y1="28" x2="52" y2="36" stroke="#1a0000" stroke-width="5" stroke-linecap="round" class="angry-brow" style="animation-delay:0.18s"/>
         <!-- Frown -->
         <path d="M32 72 Q50 58 68 72" stroke="#1a0000" stroke-width="5" fill="none" stroke-linecap="round"/>
         <!-- Gritted teeth hint -->
@@ -547,20 +587,23 @@
     /** Smiley face SVG (yellow piece) */
     function smileyFaceSVG() {
       return `<svg class="face" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <!-- Eyes -->
-        <ellipse cx="36" cy="40" rx="8" ry="9" fill="#5c3d00"/>
-        <ellipse cx="64" cy="40" rx="8" ry="9" fill="#5c3d00"/>
-        <!-- Pupils / shine -->
-        <ellipse cx="38" cy="38" rx="3" ry="4" fill="#fff"/>
-        <ellipse cx="66" cy="38" rx="3" ry="4" fill="#fff"/>
+        <!-- Eyes (blink) — wrap each eye+pupil in a group -->
+        <g class="smiley-eye">
+          <ellipse cx="36" cy="40" rx="8" ry="9" fill="#5c3d00"/>
+          <ellipse cx="38" cy="38" rx="3" ry="4" fill="#fff"/>
+        </g>
+        <g class="smiley-eye" style="animation-delay:0.12s">
+          <ellipse cx="64" cy="40" rx="8" ry="9" fill="#5c3d00"/>
+          <ellipse cx="66" cy="38" rx="3" ry="4" fill="#fff"/>
+        </g>
         <!-- Happy brows -->
         <path d="M27 30 Q36 24 45 30" stroke="#5c3d00" stroke-width="4" fill="none" stroke-linecap="round"/>
         <path d="M55 30 Q64 24 73 30" stroke="#5c3d00" stroke-width="4" fill="none" stroke-linecap="round"/>
         <!-- Big smile -->
         <path d="M28 60 Q50 82 72 60" stroke="#5c3d00" stroke-width="5" fill="none" stroke-linecap="round"/>
-        <!-- Rosy cheeks -->
-        <ellipse cx="22" cy="60" rx="9" ry="6" fill="#f97316" opacity="0.3"/>
-        <ellipse cx="78" cy="60" rx="9" ry="6" fill="#f97316" opacity="0.3"/>
+        <!-- Rosy cheeks (glow) -->
+        <ellipse cx="22" cy="60" rx="9" ry="6" fill="#f97316" class="smiley-cheek"/>
+        <ellipse cx="78" cy="60" rx="9" ry="6" fill="#f97316" class="smiley-cheek" style="animation-delay:0.4s"/>
       </svg>`;
     }
 
